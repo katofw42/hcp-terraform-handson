@@ -3,6 +3,7 @@
 ### インストールコマンド
 
 まずはTerraformコマンドをインストールします。利用しているOSごとに、以下のコマンドをターミナルで実行してください。
+
 (参考) https://developer.hashicorp.com/terraform/install
 
 ```bash
@@ -11,16 +12,15 @@ brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
 
 # Windows
-# chocolateyがある場合は
+# chocolateyを利用している場合は
 choco install terraform
-# ない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍
+# していない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍
 https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_windows_amd64.zip
 
 # Amazon Linux
 sudo yum install -y yum-utils shadow-utils
 sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
 sudo yum -y install terraform
-
 ```
 
 ### インストールの確認
@@ -34,13 +34,31 @@ terraform -help
 ### AWSのアクセスキー設定
 
 次に、Terraformコマンドを通じてAWSを操作するためのアクセスキーを発行します。
-画像の手順に従って発行し、以下のコマンドの値を置き換えて実行してください。
+AWSのコンソール上から、画像の手順に従って発行し、以下のコマンドの値を置き換えて実行してください。
 
 ```bash
 export AWS_ACCESS_KEY_ID="アクセスキー" # 置き換え
 export AWS_SECRET_ACCESS_KEY="シークレットアクセスキー" # 置き換え
 export AWS_DEFAULT_REGION="ap-northeast-1"
 ```
+
+![alt text](<images/スクリーンショット 2025-06-01 20.54.28.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.55.40.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.55.58.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.56.10.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.56.32.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.56.44.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.57.17.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.57.22.png>)
+
+![alt text](<images/スクリーンショット 2025-06-01 20.57.38.png>)
 
 ## Terraform ハンズオン
 
@@ -49,6 +67,10 @@ export AWS_DEFAULT_REGION="ap-northeast-1"
 ![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
 
 ### 最小リソースの作成
+
+EC2を1台作成するコードを書いてみます。
+
+![alt text](<images/スクリーンショット 2025-06-02 10.20.29.png>)
 
 まずは作業フォルダとファイルを作ります
 
@@ -120,6 +142,9 @@ terraform destroy
 
 ### VPCを作成する
 それでは、実用に近い構成を作っていきます。まずはVPCと関連リソースを作ります。
+
+![alt text](<images/スクリーンショット 2025-06-02 10.20.23.png>)
+
 先ほどの`main.tf`の中身を全て削除し、以下のコードに置き換えてください。
 
 ```terraform
@@ -245,7 +270,11 @@ terraform apply
 VPCとサブネットリソースが作成されました。コンソールでも確認してみましょう。
 
 ### EC2を追加する
-EC2をMAZ構成で追加します。先ほどの`main.tf`の一番最後に、次のコードを **追記** してください。
+EC2をMAZ構成で追加します。
+
+![alt text](<images/スクリーンショット 2025-06-02 10.20.18.png>)
+
+先ほどの`main.tf`の一番最後に、次のコードを **追記** してください。
 
 ```terraform
 # 最新のAmazon Linux 2023 AMIを取得
@@ -366,7 +395,11 @@ terraform apply
 コードの前半には先ほどのVPCリソースが記載されていますが、そのまま実行しても追加分のEC2だけ適切にリソースが作成されます。これは、Terraformが宣言的なコード記述ができる特性が現れています。
 
 ### ALBを追加する
-EC2の手前にALBを追加します。同様に、`main.tf`の最後に **追記** してください。
+EC2の手前にALBを追加します。
+
+![alt text](<images/スクリーンショット 2025-06-02 10.20.14.png>)
+
+同様に、`main.tf`の最後に **追記** してください。
 
 ```terraform
 # ALB用セキュリティグループ
@@ -475,7 +508,9 @@ terraform destroy
 ```
 
 ### 開発環境、本番環境をそれぞれ作る
-最後に、このTerraformのコードを使って、本番と開発環境を作ってみましょう。
+最後に、このTerraformのコードを使って、本番と開発環境を作ってみましょう。冒頭に示した、最終ゴールです。
+
+![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
 
 同じフォルダに、`variables.tf`, `dev.tfvars`, `prod.tfvars`の3ファイルを作成します。
 
