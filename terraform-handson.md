@@ -569,3 +569,5 @@ terraform destroy -var-file="prod.tfvars"
 ### AWSアクセスキーの無効化
 払い出したAWSのアクセスキーを無効化します。以下のスクリーンショットを参考にしてください。
 
+![alt text](<images/スクリーンショット 2025-06-02 10.56.51.png>)
+
