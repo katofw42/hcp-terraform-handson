@@ -3,6 +3,7 @@
 ### インストールコマンド
 
 まずはTerraformコマンドをインストールします。利用しているOSごとに、以下のコマンドをターミナルで実行してください。
+(参考) https://developer.hashicorp.com/terraform/install
 
 ```bash
 # macOS
@@ -45,6 +46,7 @@ export AWS_DEFAULT_REGION="ap-northeast-1"
 
 ### ゴール目標
 本ハンズオンのゴールは、TerraformでALB + EC2(MAZ)を、開発環境、本番環境の2面作ることです。理解のために、ステップバイステップで進めましょう。
+![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
 
 ### 最小リソースの作成
 
