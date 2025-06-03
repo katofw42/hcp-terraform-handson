@@ -94,7 +94,12 @@ resource "aws_instance" "app_server" {
 }
 ```
 
-Terraformコマンドにはサブコマンドがあり、コードのフォーマットや、文法チェックが出来ます。
+まず一番最初に、必要なプロバイダ(ここではAWS)をインストールします。これは次のコマンドで実行できます。
+```bash
+terraform init
+```
+
+他にもサブコマンドがあり、コードのフォーマットや、文法チェックが出来ます。
 ```bash
 terraform fmt
 terraform validate
@@ -105,17 +110,51 @@ terraform validate
 terraform plan
 ```
 
-Planでエラーが出なければ、実際に適用してみてリソースを作成します。
+Planでエラーが出なければ、実際に適用してみてリソースを作成します。(途中の確認では、`yes`と小文字でタイプしてください)
 ```bash
 terraform apply
 ```
 
 Completeの表示が出たら、リソースの作成が完了です。AWSコンソール上でも確認してみましょう。
 
-リソースの状態はコマンドでも確認できます。
-```bash
-terraform show
+コンソール上で見ると、名前がついていないことが確認できます。
+
+![alt text](<images/スクリーンショット 2025-06-04 0.18.15.png>)
+
+これでは不便なので、タグをつける変更をTerraform経由で実行してみましょう。
+
+```terraform
+terraform {
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+}
+
+provider "aws" {
+  region  = "ap-northeast-1"
+}
+
+resource "aws_instance" "app_server" {
+  # みなさまが書いたコードに、URLのドキュメントを参考にタグの設定を追記
+  #   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance.html
+
+}
 ```
+
+コード更新をしたら、再度実行します。
+```terraform
+terraform apply
+```
+
+再度コンソールで見ると、無事タグが反映されています。
+
+![alt text](<images/スクリーンショット 2025-06-04 0.24.32.png>)
+
+非常に小粒な変更ではありますが、Day2運用として、こうしてTerraformのコードを更新していく形になります。
+
 終わったら、次のコマンドでリソースを削除します。
 ```bash
 terraform destroy
@@ -126,7 +165,7 @@ terraform destroy
 
 ![alt text](<images/スクリーンショット 2025-06-02 10.20.23.png>)
 
-先ほどの`main.tf`の中身を全て削除し、以下のコードに置き換えてください。
+先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えてください。
 
 ```terraform
 # Provider設定
@@ -162,77 +201,6 @@ variable "project_name" {
 }
 
 
-# VPC作成
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "${var.project_name}-vpc"
-  }
-}
-
-# インターネットゲートウェイ作成
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.project_name}-igw"
-  }
-}
-
-# パブリックサブネット1（AZ-a）
-resource "aws_subnet" "public_1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.project_name}-public-subnet-1"
-    Type = "Public"
-  }
-}
-
-# パブリックサブネット2（AZ-c）
-resource "aws_subnet" "public_2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.project_name}-public-subnet-2"
-    Type = "Public"
-  }
-}
-
-# パブリック・プライベート共通のルートテーブル
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-main-rt"
-  }
-}
-
-# パブリックサブネット1とルートテーブルの関連付け
-resource "aws_route_table_association" "public_1" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.main.id
-}
-
-# パブリックサブネット2とルートテーブルの関連付け
-resource "aws_route_table_association" "public_2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.main.id
-}
 
 # 出力値
 output "vpc_id" {

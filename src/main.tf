@@ -1,10 +1,14 @@
-
 # Provider設定
 terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
       version = "~> 5.0"
+    }
+
+    random = {
+      source  = "hashicorp/random"
+      version = "~> 3.0"
     }
   }
 }
@@ -25,6 +29,13 @@ variable "aws_region" {
   default     = "ap-northeast-1"
 }
 
+resource "random_string" "unique" {
+  length  = 6
+  upper   = false
+  lower   = true
+  special = false
+}
+
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
@@ -32,89 +43,48 @@ variable "project_name" {
 }
 
 
-# VPC作成
-resource "aws_vpc" "main" {
-  cidr_block           = "10.0.0.0/16"
-  enable_dns_hostnames = true
-  enable_dns_support   = true
-
-  tags = {
-    Name = "${var.project_name}-vpc"
+# VPC設定
+data "aws_vpc" "vpc01" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01"]
+  }
+}
+data "aws_subnet" "subnet-1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-pub01a"]
   }
 }
 
-# インターネットゲートウェイ作成
-resource "aws_internet_gateway" "main" {
-  vpc_id = aws_vpc.main.id
-
-  tags = {
-    Name = "${var.project_name}-igw"
+data "aws_subnet" "subnet-1c" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-pub01c"]
   }
-}
-
-# パブリックサブネット1（AZ-a）
-resource "aws_subnet" "public_1" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.1.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[0]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.project_name}-public-subnet-1"
-    Type = "Public"
-  }
-}
-
-# パブリックサブネット2（AZ-c）
-resource "aws_subnet" "public_2" {
-  vpc_id                  = aws_vpc.main.id
-  cidr_block              = "10.0.2.0/24"
-  availability_zone       = data.aws_availability_zones.available.names[1]
-  map_public_ip_on_launch = true
-
-  tags = {
-    Name = "${var.project_name}-public-subnet-2"
-    Type = "Public"
-  }
-}
-
-
-# パブリック・プライベート共通のルートテーブル
-resource "aws_route_table" "main" {
-  vpc_id = aws_vpc.main.id
-
-  route {
-    cidr_block = "0.0.0.0/0"
-    gateway_id = aws_internet_gateway.main.id
-  }
-
-  tags = {
-    Name = "${var.project_name}-main-rt"
-  }
-}
-
-# パブリックサブネット1とルートテーブルの関連付け
-resource "aws_route_table_association" "public_1" {
-  subnet_id      = aws_subnet.public_1.id
-  route_table_id = aws_route_table.main.id
-}
-
-# パブリックサブネット2とルートテーブルの関連付け
-resource "aws_route_table_association" "public_2" {
-  subnet_id      = aws_subnet.public_2.id
-  route_table_id = aws_route_table.main.id
 }
 
 # 出力値
 output "vpc_id" {
   description = "ID of the VPC"
-  value       = aws_vpc.main.id
+  value       = data.aws_vpc.vpc01.id
 }
+
+output "subnet_id-1a" {
+  description = "ID of the Subnet"
+  value       = data.aws_subnet.subnet-1a.id
+}
+
+output "subnet_id-1c" {
+  description = "ID of the Subnet"
+  value       = data.aws_subnet.subnet-1c.id
+}
+
 
 # 最新のAmazon Linux 2023 AMIを取得
 data "aws_ami" "amazon_linux2023" {
   most_recent = true
-  owners      = ["137112412989"] 
+  owners      = ["137112412989"]
 
   filter {
     name   = "name"
@@ -134,9 +104,9 @@ data "aws_ami" "amazon_linux2023" {
 
 # セキュリティグループ
 resource "aws_security_group" "ec2_sg" {
-  name        = "${var.project_name}-ec2-sg"
+  name        = "${var.project_name}-${random_string.unique.result}-ec2-sg"
   description = "Security group for EC2 instances"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.vpc01.id
 
 
   ingress {
@@ -155,7 +125,7 @@ resource "aws_security_group" "ec2_sg" {
   }
 
   tags = {
-    Name = "${var.project_name}-ec2-sg"
+    Name = "${var.project_name}-${random_string.unique.result}-ec2-sg"
   }
 }
 
@@ -163,12 +133,12 @@ resource "aws_security_group" "ec2_sg" {
 resource "aws_instance" "public_1" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public_1.id
+  subnet_id              = data.aws_subnet.subnet-1a.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_1)
 
   tags = {
-    Name = "${var.project_name}-ec2-public-1"
+    Name = "${var.project_name}-${random_string.unique.result}-ec2-public-1"
   }
 }
 
@@ -176,12 +146,12 @@ resource "aws_instance" "public_1" {
 resource "aws_instance" "public_2" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public_2.id
+  subnet_id              = data.aws_subnet.subnet-1c.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_2)
 
   tags = {
-    Name = "${var.project_name}-ec2-public-2"
+    Name = "${var.project_name}-${random_string.unique.result}-ec2-public-2"
   }
 }
 
@@ -197,7 +167,7 @@ locals {
     sed -i 's/x!/x!-01/g' /usr/share/nginx/html/index.html
   EOF
 
-    nginx_userdata_2 = <<-EOF
+  nginx_userdata_2 = <<-EOF
     #!/bin/bash
     dnf update -y
     dnf install -y nginx
@@ -221,9 +191,9 @@ output "ec2_public_2_public_ip" {
 
 # ALB用セキュリティグループ
 resource "aws_security_group" "alb_sg" {
-  name        = "${var.project_name}-alb-sg"
+  name        = "${var.project_name}-${random_string.unique.result}-alb-sg"
   description = "Security group for ALB"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.vpc01.id
 
   ingress {
     description = "HTTP"
@@ -241,31 +211,31 @@ resource "aws_security_group" "alb_sg" {
   }
 
   tags = {
-    Name = "${var.project_name}-alb-sg"
+    Name = "${var.project_name}-${random_string.unique.result}-alb-sg"
   }
 }
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "${var.project_name}-alb"
+  name               = "${var.project_name}-${random_string.unique.result}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+  subnets            = [data.aws_subnet.subnet-1a.id, data.aws_subnet.subnet-1c.id]
 
   enable_deletion_protection = false
 
   tags = {
-    Name = "${var.project_name}-alb"
+    Name = "${var.project_name}-${random_string.unique.result}-alb"
   }
 }
 
 # ターゲットグループ
 resource "aws_lb_target_group" "main" {
-  name     = "${var.project_name}-tg"
+  name     = "${var.project_name}-${random_string.unique.result}-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = data.aws_vpc.vpc01.id
 
   health_check {
     enabled             = true
@@ -280,7 +250,7 @@ resource "aws_lb_target_group" "main" {
   }
 
   tags = {
-    Name = "${var.project_name}-tg"
+    Name = "${var.project_name}-${random_string.unique.result}-tg"
   }
 }
 
