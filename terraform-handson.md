@@ -38,7 +38,7 @@ terraform -help
 ### AWSのアクセスキー設定
 
 次に、Terraformコマンドを通じてAWSを操作するためのアクセスキーを設定します。
-本設定は**事務局側からご案内いただきます** ので、受け取った`アクセスキー`と`シークレットアクセスキー`をみなさまのターミナルで設定してください。
+本設定は**事務局側からご案内いただきます**ので、受け取った`アクセスキー`と`シークレットアクセスキー`をみなさまのターミナルで設定してください。
 
 
 ## Terraform ハンズオン
@@ -153,8 +153,6 @@ terraform apply
 
 ![alt text](<images/スクリーンショット 2025-06-04 0.24.32.png>)
 
-非常に小粒な変更ではありますが、Day2運用として、こうしてTerraformのコードを更新していく形になります。
-
 終わったら、次のコマンドでリソースを削除します。
 ```bash
 terraform destroy
@@ -165,7 +163,7 @@ terraform destroy
 
 ![alt text](<images/スクリーンショット 2025-06-02 10.20.23.png>)
 
-先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えてください。
+先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えて、`#変数定義`のセクションの`YOURNAME`となっているプレースホルダをご自身の名前に編集してください。(AWSの制限上、最大8文字程度でお願いします)
 
 ```terraform
 # Provider設定
@@ -175,6 +173,7 @@ terraform {
       source  = "hashicorp/aws"
       version = "~> 5.0"
     }
+
   }
 }
 
@@ -197,15 +196,45 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "terraform-handson"
+  default     = "handson-YOURNAME"
 }
 
 
+# VPC設定
+data "aws_vpc" "vpc01" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01"]
+  }
+}
+data "aws_subnet" "subnet-1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-pub01a"]
+  }
+}
+
+data "aws_subnet" "subnet-1c" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-pub01c"]
+  }
+}
 
 # 出力値
 output "vpc_id" {
   description = "ID of the VPC"
-  value       = aws_vpc.main.id
+  value       = data.aws_vpc.vpc01.id
+}
+
+output "subnet_id-1a" {
+  description = "ID of the Subnet"
+  value       = data.aws_subnet.subnet-1a.id
+}
+
+output "subnet_id-1c" {
+  description = "ID of the Subnet"
+  value       = data.aws_subnet.subnet-1c.id
 }
 ```
 
@@ -216,7 +245,7 @@ output "vpc_id" {
 terraform plan
 terraform apply
 ```
-VPCとサブネットリソースが作成されました。コンソールでも確認してみましょう。
+VPCとサブネットリソースが作成(連携)されました。
 
 ### EC2を追加する
 EC2をMAZ構成で追加します。
@@ -229,7 +258,7 @@ EC2をMAZ構成で追加します。
 # 最新のAmazon Linux 2023 AMIを取得
 data "aws_ami" "amazon_linux2023" {
   most_recent = true
-  owners      = ["137112412989"] 
+  owners      = ["137112412989"]
 
   filter {
     name   = "name"
@@ -251,7 +280,7 @@ data "aws_ami" "amazon_linux2023" {
 resource "aws_security_group" "ec2_sg" {
   name        = "${var.project_name}-ec2-sg"
   description = "Security group for EC2 instances"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.vpc01.id
 
 
   ingress {
@@ -278,7 +307,7 @@ resource "aws_security_group" "ec2_sg" {
 resource "aws_instance" "public_1" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public_1.id
+  subnet_id              = data.aws_subnet.subnet-1a.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_1)
 
@@ -291,7 +320,7 @@ resource "aws_instance" "public_1" {
 resource "aws_instance" "public_2" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = aws_subnet.public_2.id
+  subnet_id              = data.aws_subnet.subnet-1c.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_2)
 
@@ -312,7 +341,7 @@ locals {
     sed -i 's/x!/x!-01/g' /usr/share/nginx/html/index.html
   EOF
 
-    nginx_userdata_2 = <<-EOF
+  nginx_userdata_2 = <<-EOF
     #!/bin/bash
     dnf update -y
     dnf install -y nginx
@@ -341,7 +370,7 @@ terraform plan
 terraform apply
 ```
 
-コードの前半には先ほどのVPCリソースが記載されていますが、そのまま実行しても追加分のEC2だけ適切にリソースが作成されます。これは、Terraformが宣言的なコード記述ができる特性が現れています。
+コードの前半には先ほどのVPCリソースが記載されていますが、そのまま実行しても追加分のEC2だけ適切にリソースが作成されます。これは、Terraformが宣言的なコード記述ができる特性が現れていて、Day2運用、構成変更に対しての利点となります。
 
 ### ALBを追加する
 EC2の手前にALBを追加します。
@@ -355,7 +384,7 @@ EC2の手前にALBを追加します。
 resource "aws_security_group" "alb_sg" {
   name        = "${var.project_name}-alb-sg"
   description = "Security group for ALB"
-  vpc_id      = aws_vpc.main.id
+  vpc_id      = data.aws_vpc.vpc01.id
 
   ingress {
     description = "HTTP"
@@ -383,7 +412,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
+  subnets            = [data.aws_subnet.subnet-1a.id, data.aws_subnet.subnet-1c.id]
 
   enable_deletion_protection = false
 
@@ -397,7 +426,7 @@ resource "aws_lb_target_group" "main" {
   name     = "${var.project_name}-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = aws_vpc.main.id
+  vpc_id   = data.aws_vpc.vpc01.id
 
   health_check {
     enabled             = true
@@ -451,7 +480,7 @@ output "alb_dns_name" {
 作成が完了し、ALBのDNS名が出力されたらブラウザからアクセスしてみてください。
 リロードを何回か繰り返すと、EC2にラウンドロビンされている様子がわかると思います。
 
-次の準備のために、環境を削除しましょう。IaCでは、環境の削除も容易です。
+次の準備のために、環境を削除しましょう。少し環境が複雑になってきましたが、IaCでは環境の削除も容易です。
 ```terraform
 terraform destroy
 ```
@@ -481,10 +510,9 @@ environment    = "dev"
 environment    = "prod"
 ```
 
-次に、`main.tf`を編集します。お使いのエディタの機能で、`${var.project_name}`となっている箇所を、`${var.project_name}-${var.environment}`と全て置換してください。手動でも大丈夫です。全部で15箇所あります。
+次に、`main.tf`を編集します。お使いのエディタの機能で、`${var.project_name}`となっている箇所を、`${var.project_name}-${var.environment}`と全て置換してください。手動でも大丈夫です。全部で10箇所あります。
 
 終わりましたら、次のコマンドを実行して開発環境を作成します
-
 ```terraform
 terraform plan -var-file="dev.tfvars"
 terraform apply -var-file="dev.tfvars"
@@ -507,7 +535,6 @@ terraform destroy -var-file="dev.tfvars"
 terraform destroy -var-file="prod.tfvars"
 ```
 
-### 
 
 ## Terraformのクラウド版
 今回利用したコミュニティ版以外にも、様々な機能が追加されたクラウド版があります。どのように利用できるか、投影のみになりますがご紹介します。
@@ -515,8 +542,3 @@ terraform destroy -var-file="prod.tfvars"
 ## 片付け
 ### 作成したリソースの削除
 (まだの場合は)`terraform apply`を実行した各フォルダで`terraform destroy`を実行します
-### AWSアクセスキーの無効化
-払い出したAWSのアクセスキーを無効化します。以下のスクリーンショットを参考にしてください。
-
-![alt text](<images/スクリーンショット 2025-06-02 10.56.51.png>)
-
