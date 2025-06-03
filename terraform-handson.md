@@ -8,13 +8,17 @@
 
 ```bash
 # macOS
+# Homebrewを利用している場合は
 brew tap hashicorp/tap
 brew install hashicorp/tap/terraform
+# していない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍してパスを通す
+https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_darwin_arm64.zip
+
 
 # Windows
 # chocolateyを利用している場合は
 choco install terraform
-# していない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍
+# していない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍してパスを通す
 https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_windows_amd64.zip
 
 # Amazon Linux
@@ -34,13 +38,7 @@ terraform -help
 ### AWSのアクセスキー設定
 
 次に、Terraformコマンドを通じてAWSを操作するためのアクセスキーを設定します。
-**事務局側からご案内いただきます** ので、受け取った`アクセスキー`と`シークレットアクセスキー`で以下のコマンドの値を置き換え、実行してください。
-
-```bash
-export AWS_ACCESS_KEY_ID="アクセスキー" # 置き換え
-export AWS_SECRET_ACCESS_KEY="シークレットアクセスキー" # 置き換え
-export AWS_DEFAULT_REGION="ap-northeast-1"
-```
+本設定は**事務局側からご案内いただきます** ので、受け取った`アクセスキー`と`シークレットアクセスキー`をみなさまのターミナルで設定してください。
 
 
 ## Terraform ハンズオン
