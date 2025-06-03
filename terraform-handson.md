@@ -1,8 +1,8 @@
 ## 事前準備
 
-### インストールコマンド
+### Terraform のインストール
 
-まずはTerraformコマンドをインストールします。利用しているOSごとに、以下のコマンドをターミナルで実行してください。
+まずは Terraform をインストールします。利用しているOSごとに、以下のコマンドをターミナルで実行してください。
 
 (参考) https://developer.hashicorp.com/terraform/install
 
@@ -33,8 +33,8 @@ terraform -help
 
 ### AWSのアクセスキー設定
 
-次に、Terraformコマンドを通じてAWSを操作するためのアクセスキーを発行します。
-AWSのコンソール上から、画像の手順に従って発行し、以下のコマンドの値を置き換えて実行してください。
+次に、Terraformコマンドを通じてAWSを操作するためのアクセスキーを設定します。
+**事務局側からご案内いただきます** ので、受け取った`アクセスキー`と`シークレットアクセスキー`で以下のコマンドの値を置き換え、実行してください。
 
 ```bash
 export AWS_ACCESS_KEY_ID="アクセスキー" # 置き換え
@@ -42,23 +42,6 @@ export AWS_SECRET_ACCESS_KEY="シークレットアクセスキー" # 置き換�
 export AWS_DEFAULT_REGION="ap-northeast-1"
 ```
 
-![alt text](<images/スクリーンショット 2025-06-01 20.54.28.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.55.40.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.55.58.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.56.10.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.56.32.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.56.44.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.57.17.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.57.22.png>)
-
-![alt text](<images/スクリーンショット 2025-06-01 20.57.38.png>)
 
 ## Terraform ハンズオン
 
