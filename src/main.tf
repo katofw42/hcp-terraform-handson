@@ -6,10 +6,6 @@ terraform {
       version = "~> 5.0"
     }
 
-    random = {
-      source  = "hashicorp/random"
-      version = "~> 3.0"
-    }
   }
 }
 
@@ -29,17 +25,10 @@ variable "aws_region" {
   default     = "ap-northeast-1"
 }
 
-resource "random_string" "unique" {
-  length  = 6
-  upper   = false
-  lower   = true
-  special = false
-}
-
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "terraform-handson"
+  default     = "handson-YOURNAME"
 }
 
 
@@ -104,7 +93,7 @@ data "aws_ami" "amazon_linux2023" {
 
 # セキュリティグループ
 resource "aws_security_group" "ec2_sg" {
-  name        = "${var.project_name}-${random_string.unique.result}-ec2-sg"
+  name        = "${var.project_name}-${var.environment}-ec2-sg"
   description = "Security group for EC2 instances"
   vpc_id      = data.aws_vpc.vpc01.id
 
@@ -125,7 +114,7 @@ resource "aws_security_group" "ec2_sg" {
   }
 
   tags = {
-    Name = "${var.project_name}-${random_string.unique.result}-ec2-sg"
+    Name = "${var.project_name}-${var.environment}-ec2-sg"
   }
 }
 
@@ -138,7 +127,7 @@ resource "aws_instance" "public_1" {
   user_data              = base64encode(local.nginx_userdata_1)
 
   tags = {
-    Name = "${var.project_name}-${random_string.unique.result}-ec2-public-1"
+    Name = "${var.project_name}-${var.environment}-ec2-public-1"
   }
 }
 
@@ -151,7 +140,7 @@ resource "aws_instance" "public_2" {
   user_data              = base64encode(local.nginx_userdata_2)
 
   tags = {
-    Name = "${var.project_name}-${random_string.unique.result}-ec2-public-2"
+    Name = "${var.project_name}-${var.environment}-ec2-public-2"
   }
 }
 
@@ -191,7 +180,7 @@ output "ec2_public_2_public_ip" {
 
 # ALB用セキュリティグループ
 resource "aws_security_group" "alb_sg" {
-  name        = "${var.project_name}-${random_string.unique.result}-alb-sg"
+  name        = "${var.project_name}-${var.environment}-alb-sg"
   description = "Security group for ALB"
   vpc_id      = data.aws_vpc.vpc01.id
 
@@ -211,13 +200,13 @@ resource "aws_security_group" "alb_sg" {
   }
 
   tags = {
-    Name = "${var.project_name}-${random_string.unique.result}-alb-sg"
+    Name = "${var.project_name}-${var.environment}-alb-sg"
   }
 }
 
 # Application Load Balancer
 resource "aws_lb" "main" {
-  name               = "${var.project_name}-${random_string.unique.result}-alb"
+  name               = "${var.project_name}-${var.environment}-alb"
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
@@ -226,13 +215,13 @@ resource "aws_lb" "main" {
   enable_deletion_protection = false
 
   tags = {
-    Name = "${var.project_name}-${random_string.unique.result}-alb"
+    Name = "${var.project_name}-${var.environment}-alb"
   }
 }
 
 # ターゲットグループ
 resource "aws_lb_target_group" "main" {
-  name     = "${var.project_name}-${random_string.unique.result}-tg"
+  name     = "${var.project_name}-${var.environment}-tg"
   port     = 80
   protocol = "HTTP"
   vpc_id   = data.aws_vpc.vpc01.id
@@ -250,7 +239,7 @@ resource "aws_lb_target_group" "main" {
   }
 
   tags = {
-    Name = "${var.project_name}-${random_string.unique.result}-tg"
+    Name = "${var.project_name}-${var.environment}-tg"
   }
 }
 
