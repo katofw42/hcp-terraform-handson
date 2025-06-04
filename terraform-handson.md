@@ -2,7 +2,7 @@
 
 ### Terraform のインストール
 
-まずは Terraform をインストールします。利用しているOSごとに、以下のコマンドをターミナルで実行してください。
+まずは Terraform をインストールします。利用している OS ごとに、以下のコマンドをターミナルで実行してください。
 
 (参考) https://developer.hashicorp.com/terraform/install
 
@@ -28,30 +28,32 @@ sudo yum -y install terraform
 ```
 
 ### インストールの確認
+
 インストールが完了したかを、次のコマンドで確認してみましょう。
 エラーが出る場合は一度ターミナルを再起動し、解決しなければ講師を呼んでください。
+
 ```bash
 terraform -help
 ```
 
+### AWS のアクセスキー設定
 
-### AWSのアクセスキー設定
-
-次に、Terraformコマンドを通じてAWSを操作するためのアクセスキーを設定します。
+次に、Terraform コマンドを通じて AWS を操作するためのアクセスキーを設定します。
 本設定は**事務局側からご案内いただきます**ので、受け取った`アクセスキー`と`シークレットアクセスキー`をみなさまのターミナルで設定してください。
-
 
 ## Terraform ハンズオン
 
 ### ゴール目標
-本ハンズオンのゴールは、TerraformでALB + EC2(MAZ)を、開発環境、本番環境の2面作ることです。理解のために、ステップバイステップで進めましょう。
-![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
+
+本ハンズオンのゴールは、Terraform で ALB + EC2(MAZ)を、開発環境、本番環境の 2 面作ることです。理解のために、ステップバイステップで進めましょう。
+
+![alt text](images/devprod.png)
 
 ### 最小リソースの作成
 
-EC2を1台作成するコードを書いてみます。
+EC2 を 1 台作成するコードを書いてみます。
 
-![alt text](<images/スクリーンショット 2025-06-02 10.20.29.png>)
+![alt text](<images/1vm.png>)
 
 まずは作業フォルダとファイルを作ります
 
@@ -61,13 +63,14 @@ cd terraform-handson
 touch main.tf
 ```
 
-エディタで`main.tf`を開いてください。ここにTerraformのコードを書いていきましょう。
+エディタで`main.tf`を開いてください。ここに Terraform のコードを書いていきましょう。
 
-Terraformのコードは、非常にシンプルで、基本的に以下の見た目をしています。
+Terraform のコードは、非常にシンプルで、基本的に以下の見た目をしています。
+
 ```
 <BLOCK TYPE> "<BLOCK LABEL>" "<BLOCK LABEL>" {
-	# Block body
-	<IDENTIFIER> = <EXPRESSION> # Argument
+ # Block body
+ <IDENTIFIER> = <EXPRESSION> # Argument
 }
 ```
 
@@ -87,41 +90,60 @@ provider "aws" {
   region  = "ap-northeast-1"
 }
 
+data "aws_vpc" "vpc01" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01"]
+  }
+}
+
+data "aws_subnet" "private-1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-prv01a"]
+  }
+}
+
 resource "aws_instance" "app_server" {
   # ここにコードを調べながら書いてみましょう(画面投影で解説します)
   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance.html
 
+  subnet_id              = data.aws_subnet.private-1a.id
 }
 ```
 
-まず一番最初に、必要なプロバイダ(ここではAWS)をインストールします。これは次のコマンドで実行できます。
+まず一番最初に、必要なプロバイダ(ここでは AWS)をインストールします。これは次のコマンドで実行できます。
+
 ```bash
 terraform init
 ```
 
 他にもサブコマンドがあり、コードのフォーマットや、文法チェックが出来ます。
+
 ```bash
 terraform fmt
 terraform validate
 ```
 
 実行前に、構成に最終確認も出来ます。
+
 ```bash
 terraform plan
 ```
 
-Planでエラーが出なければ、実際に適用してみてリソースを作成します。(途中の確認では、`yes`と小文字でタイプしてください)
+Plan でエラーが出なければ、実際に適用してみてリソースを作成します。(途中の確認では、`yes`と小文字でタイプしてください)
+
 ```bash
 terraform apply
 ```
 
-Completeの表示が出たら、リソースの作成が完了です。AWSコンソール上でも確認してみましょう。
+Complete の表示が出たら、リソースの作成が完了です。AWS コンソール上でも確認してみましょう。
 
 コンソール上で見ると、名前がついていないことが確認できます。
 
 ![alt text](<images/スクリーンショット 2025-06-04 0.18.15.png>)
 
-これでは不便なので、タグをつける変更をTerraform経由で実行してみましょう。
+これでは不便なので、タグをつける変更を Terraform 経由で実行してみましょう。
 
 ```terraform
 terraform {
@@ -140,11 +162,13 @@ provider "aws" {
 resource "aws_instance" "app_server" {
   # みなさまが書いたコードに、URLのドキュメントを参考にタグの設定を追記
   #   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance.html
-
+  
+  subnet_id              = data.aws_subnet.private-1a.id
 }
 ```
 
 コード更新をしたら、再度実行します。
+
 ```terraform
 terraform apply
 ```
@@ -154,16 +178,18 @@ terraform apply
 ![alt text](<images/スクリーンショット 2025-06-04 0.24.32.png>)
 
 終わったら、次のコマンドでリソースを削除します。
+
 ```bash
 terraform destroy
 ```
 
-### VPCを作成する
-それでは、実用に近い構成を作っていきます。まずはVPCと関連リソースを作ります。
+### VPC を作成する
+
+それでは、実用に近い構成を作っていきます。まずは VPC と関連リソースを作ります。
 
 ![alt text](<images/スクリーンショット 2025-06-02 10.20.23.png>)
 
-先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えて、`#変数定義`のセクションの`YOURNAME`となっているプレースホルダをご自身の名前に編集してください。(AWSの制限上、最大8文字程度でお願いします)
+先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えて、`#変数定義`のセクションの`YOURNAME`となっているプレースホルダをご自身の名前に編集してください。(AWS の制限上、最大 8 文字程度でお願いします)
 
 ```terraform
 # Provider設定
@@ -198,7 +224,7 @@ variable "project_name" {
   type        = string
   default     = "handson-YOURNAME"
 }
-
+ 
 
 # VPC設定
 data "aws_vpc" "vpc01" {
@@ -221,6 +247,20 @@ data "aws_subnet" "subnet-1c" {
   }
 }
 
+data "aws_subnet" "private-1a" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-prv01a"]
+  }
+}
+
+data "aws_subnet" "private-1c" {
+  filter {
+    name   = "tag:Name"
+    values = ["prod-handson-vpc01-sub-prv01c"]
+  }
+}
+
 # 出力値
 output "vpc_id" {
   description = "ID of the VPC"
@@ -236,21 +276,34 @@ output "subnet_id-1c" {
   description = "ID of the Subnet"
   value       = data.aws_subnet.subnet-1c.id
 }
+
+output "private_id-1a" {
+  description = "ID of the Subnet"
+  value       = data.aws_subnet.private-1a.id
+}
+
+output "private_id-1c" {
+  description = "ID of the Subnet"
+  value       = data.aws_subnet.private-1c.id
+}
 ```
 
 コードを解説します。
 概要を掴んだら、次のコマンドで実行してみてください。
 コードにエラーがある場合は、`terraform plan`が出力するメッセージを読んで修正します。
+
 ```terraform
 terraform plan
 terraform apply
 ```
-VPCとサブネットリソースが作成(連携)されました。
 
-### EC2を追加する
-EC2をMAZ構成で追加します。
+VPC とサブネットリソースが作成(連携)されました。
 
-![alt text](<images/スクリーンショット 2025-06-02 10.20.18.png>)
+### EC2 を追加する
+
+EC2 を MAZ 構成で追加します。
+
+![alt text](<images/2vm.png>)
 
 先ほどの`main.tf`の一番最後に、次のコードを **追記** してください。
 
@@ -283,13 +336,13 @@ resource "aws_security_group" "ec2_sg" {
   vpc_id      = data.aws_vpc.vpc01.id
 
 
-  ingress {
-    description = "HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+#  ingress {
+#    description = "HTTP"
+#    from_port   = 80
+#    to_port     = 80
+#    protocol    = "tcp"
+#    security_groups = [aws_security_group.alb_sg.id]
+#  }
 
   egress {
     from_port   = 0
@@ -304,28 +357,28 @@ resource "aws_security_group" "ec2_sg" {
 }
 
 # EC2インスタンス - パブリックサブネット1
-resource "aws_instance" "public_1" {
+resource "aws_instance" "private_1" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = data.aws_subnet.subnet-1a.id
+  subnet_id              = data.aws_subnet.private-1a.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_1)
 
   tags = {
-    Name = "${var.project_name}-ec2-public-1"
+    Name = "${var.project_name}-ec2-private-1"
   }
 }
 
 # EC2インスタンス - パブリックサブネット2
-resource "aws_instance" "public_2" {
+resource "aws_instance" "private_2" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = data.aws_subnet.subnet-1c.id
+  subnet_id              = data.aws_subnet.private-1c.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_2)
 
   tags = {
-    Name = "${var.project_name}-ec2-public-2"
+    Name = "${var.project_name}-ec2-private-2"
   }
 }
 
@@ -364,18 +417,21 @@ output "ec2_public_2_public_ip" {
 }
 ```
 
+ 
 同様に解説します。概要が掴めたら、以下のコマンドで実行してください。
+
 ```terraform
 terraform plan
 terraform apply
 ```
 
-コードの前半には先ほどのVPCリソースが記載されていますが、そのまま実行しても追加分のEC2だけ適切にリソースが作成されます。これは、Terraformが宣言的なコード記述ができる特性が現れていて、Day2運用、構成変更に対しての利点となります。
+コードの前半には先ほどの VPC リソースが記載されていますが、そのまま実行しても追加分の EC2 だけ適切にリソースが作成されます。これは、Terraform が宣言的なコード記述ができる特性が現れていて、Day2 運用、構成変更に対しての利点となります。
 
-### ALBを追加する
-EC2の手前にALBを追加します。
+### ALB を追加する
 
-![alt text](<images/スクリーンショット 2025-06-02 10.20.14.png>)
+EC2 の手前に ALB を追加します。
+
+![alt text](<images/maz.png>)
 
 同様に、`main.tf`の最後に **追記** してください。
 
@@ -391,7 +447,7 @@ resource "aws_security_group" "alb_sg" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = ["x.x.x.x/0"]
   }
 
   egress {
@@ -448,13 +504,13 @@ resource "aws_lb_target_group" "main" {
 # ターゲットグループにEC2インスタンスを登録
 resource "aws_lb_target_group_attachment" "public_1" {
   target_group_arn = aws_lb_target_group.main.arn
-  target_id        = aws_instance.public_1.id
+  target_id        = aws_instance.private_1.id
   port             = 80
 }
 
 resource "aws_lb_target_group_attachment" "public_2" {
   target_group_arn = aws_lb_target_group.main.arn
-  target_id        = aws_instance.public_2.id
+  target_id        = aws_instance.private_2.id
   port             = 80
 }
 
@@ -476,21 +532,24 @@ output "alb_dns_name" {
   value       = aws_lb.main.dns_name
 }
 ```
-同様に解説します。
-作成が完了し、ALBのDNS名が出力されたらブラウザからアクセスしてみてください。
-リロードを何回か繰り返すと、EC2にラウンドロビンされている様子がわかると思います。
 
-次の準備のために、環境を削除しましょう。少し環境が複雑になってきましたが、IaCでは環境の削除も容易です。
+同様に解説します。
+作成が完了し、ALB の DNS 名が出力されたらブラウザからアクセスしてみてください。
+リロードを何回か繰り返すと、EC2 にラウンドロビンされている様子がわかると思います。
+
+次の準備のために、環境を削除しましょう。少し環境が複雑になってきましたが、IaC では環境の削除も容易です。
+
 ```terraform
 terraform destroy
 ```
 
 ### 開発環境、本番環境をそれぞれ作る
-最後に、このTerraformのコードを使って、本番と開発環境を作ってみましょう。冒頭に示した、最終ゴールです。
 
-![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
+最後に、この Terraform のコードを使って、本番と開発環境を作ってみましょう。冒頭に示した、最終ゴールです。
 
-同じフォルダに、`variables.tf`, `dev.tfvars`, `prod.tfvars`の3ファイルを作成します。
+![alt text](<images/devprod.png>)
+
+devフォルダ、prodフォルダを作成し、それぞれのフォルダにmain.tfをコピーします。また`variables.tf`, `dev.tfvars`, `prod.tfvars`の 3 ファイルを作成し、`variables.tf`はそれぞれのフォルダにコピー, `dev.tfvars`, `prod.tfvars`は片方のフォルダにコピーします。
 
 ```terraform
 # variables.tf
@@ -510,15 +569,17 @@ environment    = "dev"
 environment    = "prod"
 ```
 
-次に、`main.tf`を編集します。お使いのエディタの機能で、`${var.project_name}`となっている箇所を、`${var.project_name}-${var.environment}`と全て置換してください。手動でも大丈夫です。全部で10箇所あります。
+次に、`main.tf`を編集します。お使いのエディタの機能で、`${var.project_name}`となっている箇所を、`${var.project_name}-${var.environment}`と全て置換してください。手動でも大丈夫です。全部で 10 箇所あります。
 
 終わりましたら、次のコマンドを実行して開発環境を作成します
+
 ```terraform
 terraform plan -var-file="dev.tfvars"
 terraform apply -var-file="dev.tfvars"
 ```
 
 次に、本番環境を作成します
+
 ```terraform
 terraform plan -var-file="prod.tfvars"
 terraform apply -var-file="prod.tfvars"
@@ -530,15 +591,18 @@ terraform apply -var-file="prod.tfvars"
 > これまでのコードの最終形が、`/src`フォルダ配下にあります。うまく動作しない方は、参考にしてみてください。
 
 確認できたら、環境を削除します。
+
 ```terraform
 terraform destroy -var-file="dev.tfvars"
 terraform destroy -var-file="prod.tfvars"
 ```
 
+## Terraform のクラウド版
 
-## Terraformのクラウド版
 今回利用したコミュニティ版以外にも、様々な機能が追加されたクラウド版があります。どのように利用できるか、投影のみになりますがご紹介します。
 
 ## 片付け
+
 ### 作成したリソースの削除
+
 (まだの場合は)`terraform apply`を実行した各フォルダで`terraform destroy`を実行します
