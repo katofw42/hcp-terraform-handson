@@ -2,15 +2,16 @@
 
 ### GitHub リポジトリの準備
 GitHubにハンズオン用のリポジトリ`hcp-terraform-handson`を作成します。
-リポジトリを作成したら、皆様の作業端末にcloneし、`main.tf`を追加してpushします。
+リポジトリを作成したら、新規の作業ディレクトリに移動し、皆様の作業端末から`main.tf`を追加してpushします。
 
 ```bash
-git clone https://github.com/[USER]/hcp-terraform-handson.git
-cd hcp-terraform-handson
 echo "# main.tf" > main.tf
-git add .
-git commit -m "add main.tf"
-git push
+git init
+git add main.tf
+git commit -m "first commit"
+git branch -M main
+git remote add origin git@github.com:[USER]/hcp-terraform-handson.git
+git push -u origin main
 ```
 
 ### AWS のアクセスキー設定
@@ -100,53 +101,39 @@ resource "aws_instance" "web_server" {
 }
 ```
 
+`main.tf`を編集し終えたら、変更をpushします。
 
+```bash
+git commit -am "add ec2"
+git push
+```
 
-Complete の表示が出たら、リソースの作成が完了です。AWS コンソール上でも確認してみましょう。
+HCP Terraformの`Runs`に移動すると、`Plan`が自動で走り、問題なければ`Apply`の承認待ちになっています。
+`Confirm`をクリックし、承認コメントを入力して実行します。
 
-コンソール上で見ると、名前がついていないことが確認できます。
+`Apply`が完了した後にAWSコンソール上で見ると、名前がついていないことが確認できます。
 
 ![alt text](<images/スクリーンショット 2025-06-04 0.18.15.png>)
 
 これでは不便なので、タグをつける変更を Terraform 経由で実行してみましょう。
+ドキュメントを参考に、EC2の`resource`ブロックを編集します。
 
-```terraform
-terraform {
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
+コード更新をしたら、再度pushします。
 
-provider "aws" {
-  region  = "ap-northeast-1"
-}
-
-resource "aws_instance" "app_server" {
-  # みなさまが書いたコードに、URLのドキュメントを参考にタグの設定を追記
-  #   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance.html
-  
-  subnet_id              = data.aws_subnet.private-1a.id
-}
+```bash
+git commit -am "add tag to ec2"
+git push
 ```
 
-コード更新をしたら、再度実行します。
+再度`Apply`承認待ちになっています。毎回確認が入るのが煩わしいので`Confirm`を進めたあと、自動で`Apply`されるように設定変更をしましょう。
 
-```terraform
-terraform apply
-```
+HCP TerraformのWorkspace内、左側メニューから`Settings` > `Version Control`に進み、`Auto-apply API, UI, & VCS runs`にチェックを入れた後、ページ最下部`Update VCS settings`を押します。
 
-再度コンソールで見ると、無事タグが反映されています。
+
+AWSコンソールに戻ると、無事タグがEC2に反映されています。
 
 ![alt text](<images/スクリーンショット 2025-06-04 0.24.32.png>)
 
-終わったら、次のコマンドでリソースを削除します。
-
-```bash
-terraform destroy
-```
 
 ### VPC を作成する
 
@@ -154,7 +141,7 @@ terraform destroy
 
 ![alt text](<images/スクリーンショット 2025-06-02 10.20.23.png>)
 
-先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えて、`#変数定義`のセクションの`YOURNAME`となっているプレースホルダをご自身の名前に編集してください。(AWS の制限上、最大 8 文字程度でお願いします)
+先ほどの`main.tf`の中身を**全て削除**し、以下のコードに置き換えます
 
 ```terraform
 # Provider設定
@@ -162,9 +149,8 @@ terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
-
   }
 }
 
@@ -187,88 +173,102 @@ variable "aws_region" {
 variable "project_name" {
   description = "Project name for resource naming"
   type        = string
-  default     = "handson-YOURNAME"
+  default     = "hcp-terraform-handson"
 }
- 
 
-# VPC設定
-data "aws_vpc" "vpc01" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01"]
-  }
-}
-data "aws_subnet" "subnet-1a" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01-sub-pub01a"]
+
+# VPC作成
+resource "aws_vpc" "main" {
+  cidr_block           = "10.0.0.0/16"
+  enable_dns_hostnames = true
+  enable_dns_support   = true
+
+  tags = {
+    Name = "${var.project_name}-vpc"
   }
 }
 
-data "aws_subnet" "subnet-1c" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01-sub-pub01c"]
+# インターネットゲートウェイ作成
+resource "aws_internet_gateway" "main" {
+  vpc_id = aws_vpc.main.id
+
+  tags = {
+    Name = "${var.project_name}-igw"
   }
 }
 
-data "aws_subnet" "private-1a" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01-sub-prv01a"]
+# パブリックサブネット1（AZ-a）
+resource "aws_subnet" "public_1" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.1.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[0]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.project_name}-public-subnet-1"
+    Type = "Public"
   }
 }
 
-data "aws_subnet" "private-1c" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01-sub-prv01c"]
+# パブリックサブネット2（AZ-c）
+resource "aws_subnet" "public_2" {
+  vpc_id                  = aws_vpc.main.id
+  cidr_block              = "10.0.2.0/24"
+  availability_zone       = data.aws_availability_zones.available.names[1]
+  map_public_ip_on_launch = true
+
+  tags = {
+    Name = "${var.project_name}-public-subnet-2"
+    Type = "Public"
   }
+}
+
+# パブリック・プライベート共通のルートテーブル
+resource "aws_route_table" "main" {
+  vpc_id = aws_vpc.main.id
+
+  route {
+    cidr_block = "0.0.0.0/0"
+    gateway_id = aws_internet_gateway.main.id
+  }
+
+  tags = {
+    Name = "${var.project_name}-main-rt"
+  }
+}
+
+# パブリックサブネット1とルートテーブルの関連付け
+resource "aws_route_table_association" "public_1" {
+  subnet_id      = aws_subnet.public_1.id
+  route_table_id = aws_route_table.main.id
+}
+
+# パブリックサブネット2とルートテーブルの関連付け
+resource "aws_route_table_association" "public_2" {
+  subnet_id      = aws_subnet.public_2.id
+  route_table_id = aws_route_table.main.id
 }
 
 # 出力値
 output "vpc_id" {
   description = "ID of the VPC"
-  value       = data.aws_vpc.vpc01.id
-}
-
-output "subnet_id-1a" {
-  description = "ID of the Subnet"
-  value       = data.aws_subnet.subnet-1a.id
-}
-
-output "subnet_id-1c" {
-  description = "ID of the Subnet"
-  value       = data.aws_subnet.subnet-1c.id
-}
-
-output "private_id-1a" {
-  description = "ID of the Subnet"
-  value       = data.aws_subnet.private-1a.id
-}
-
-output "private_id-1c" {
-  description = "ID of the Subnet"
-  value       = data.aws_subnet.private-1c.id
+  value       = aws_vpc.main.id
 }
 ```
 
-コードを解説します。
-概要を掴んだら、次のコマンドで実行してみてください。
-コードにエラーがある場合は、`terraform plan`が出力するメッセージを読んで修正します。
-
-```terraform
-terraform plan
-terraform apply
+コードを解説します。概要を掴んだら、変更をpushします。
+```bash
+git commit -am "create vpc and subnets"
+git push
 ```
 
-VPC とサブネットリソースが作成(連携)されました。
+VPC とサブネットリソースが作成されました。
 
 ### EC2 を追加する
 
 EC2 を MAZ 構成で追加します。
 
-![alt text](<images/2vm.png>)
+![alt text](<images/スクリーンショット 2025-06-02 10.20.18.png>)
 
 先ほどの`main.tf`の一番最後に、次のコードを **追記** してください。
 
@@ -276,7 +276,7 @@ EC2 を MAZ 構成で追加します。
 # 最新のAmazon Linux 2023 AMIを取得
 data "aws_ami" "amazon_linux2023" {
   most_recent = true
-  owners      = ["137112412989"]
+  owners      = ["137112412989"] 
 
   filter {
     name   = "name"
@@ -298,16 +298,16 @@ data "aws_ami" "amazon_linux2023" {
 resource "aws_security_group" "ec2_sg" {
   name        = "${var.project_name}-ec2-sg"
   description = "Security group for EC2 instances"
-  vpc_id      = data.aws_vpc.vpc01.id
+  vpc_id      = aws_vpc.main.id
 
 
-#  ingress {
-#    description = "HTTP"
-#    from_port   = 80
-#    to_port     = 80
-#    protocol    = "tcp"
-#    security_groups = [aws_security_group.alb_sg.id]
-#  }
+  ingress {
+    description = "HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   egress {
     from_port   = 0
@@ -322,28 +322,28 @@ resource "aws_security_group" "ec2_sg" {
 }
 
 # EC2インスタンス - パブリックサブネット1
-resource "aws_instance" "private_1" {
+resource "aws_instance" "public_1" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = data.aws_subnet.private-1a.id
+  subnet_id              = aws_subnet.public_1.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_1)
 
   tags = {
-    Name = "${var.project_name}-ec2-private-1"
+    Name = "${var.project_name}-ec2-public-1"
   }
 }
 
 # EC2インスタンス - パブリックサブネット2
-resource "aws_instance" "private_2" {
+resource "aws_instance" "public_2" {
   ami                    = data.aws_ami.amazon_linux2023.id
   instance_type          = "t3.micro"
-  subnet_id              = data.aws_subnet.private-1c.id
+  subnet_id              = aws_subnet.public_2.id
   vpc_security_group_ids = [aws_security_group.ec2_sg.id]
   user_data              = base64encode(local.nginx_userdata_2)
 
   tags = {
-    Name = "${var.project_name}-ec2-private-2"
+    Name = "${var.project_name}-ec2-public-2"
   }
 }
 
@@ -359,7 +359,7 @@ locals {
     sed -i 's/x!/x!-01/g' /usr/share/nginx/html/index.html
   EOF
 
-  nginx_userdata_2 = <<-EOF
+    nginx_userdata_2 = <<-EOF
     #!/bin/bash
     dnf update -y
     dnf install -y nginx
@@ -381,14 +381,13 @@ output "ec2_public_2_public_ip" {
   value       = aws_instance.public_2.public_ip
 }
 ```
-
  
-同様に解説します。概要が掴めたら、以下のコマンドで実行してください。
-
-```terraform
-terraform plan
-terraform apply
+同様に解説します。概要が掴めたら、変更をpushしてください。
+```bash
+git commit -am "create maz ec2"
+git push
 ```
+
 
 コードの前半には先ほどの VPC リソースが記載されていますが、そのまま実行しても追加分の EC2 だけ適切にリソースが作成されます。これは、Terraform が宣言的なコード記述ができる特性が現れていて、Day2 運用、構成変更に対しての利点となります。
 
@@ -396,7 +395,7 @@ terraform apply
 
 EC2 の手前に ALB を追加します。
 
-![alt text](<images/maz.png>)
+![alt text](<images/スクリーンショット 2025-06-02 10.20.14.png>)
 
 同様に、`main.tf`の最後に **追記** してください。
 
@@ -405,14 +404,14 @@ EC2 の手前に ALB を追加します。
 resource "aws_security_group" "alb_sg" {
   name        = "${var.project_name}-alb-sg"
   description = "Security group for ALB"
-  vpc_id      = data.aws_vpc.vpc01.id
+  vpc_id      = aws_vpc.main.id
 
   ingress {
     description = "HTTP"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["x.x.x.x/0"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
 
   egress {
@@ -433,7 +432,7 @@ resource "aws_lb" "main" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb_sg.id]
-  subnets            = [data.aws_subnet.subnet-1a.id, data.aws_subnet.subnet-1c.id]
+  subnets            = [aws_subnet.public_1.id, aws_subnet.public_2.id]
 
   enable_deletion_protection = false
 
@@ -447,7 +446,7 @@ resource "aws_lb_target_group" "main" {
   name     = "${var.project_name}-tg"
   port     = 80
   protocol = "HTTP"
-  vpc_id   = data.aws_vpc.vpc01.id
+  vpc_id   = aws_vpc.main.id
 
   health_check {
     enabled             = true
@@ -469,13 +468,13 @@ resource "aws_lb_target_group" "main" {
 # ターゲットグループにEC2インスタンスを登録
 resource "aws_lb_target_group_attachment" "public_1" {
   target_group_arn = aws_lb_target_group.main.arn
-  target_id        = aws_instance.private_1.id
+  target_id        = aws_instance.public_1.id
   port             = 80
 }
 
 resource "aws_lb_target_group_attachment" "public_2" {
   target_group_arn = aws_lb_target_group.main.arn
-  target_id        = aws_instance.private_2.id
+  target_id        = aws_instance.public_2.id
   port             = 80
 }
 
@@ -497,6 +496,13 @@ output "alb_dns_name" {
   value       = aws_lb.main.dns_name
 }
 ```
+
+変更をpushします。
+```bash
+git commit -am "add alb to ec2"
+git push
+```
+
 
 同様に解説します。
 作成が完了し、ALB の DNS 名が出力されたらブラウザからアクセスしてみてください。
