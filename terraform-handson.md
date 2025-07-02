@@ -41,20 +41,21 @@ Businessのボックスにチェックをいれ、フォーム入力を進め、
 
 ### HCP TerraformのWorkspaceを設定する
 
-%%%%%%%%%%%%%%%%%%%%
-まずは、
-**Workspace作成＆VCS連携**
+先ほど作成したOrganizationsにおいて、画面内の`Version Control Workflow`を選択します。
+もし画面遷移をしてしまった場合は、左側メニュー`Workspaces`をクリック、右上の`New`から`Workspace`を選択します。
 
-%%%%%%%%%%%%%%%%%%%%%
+1. VCS選択画面で、`GitHub` > `GitHub.com`を選択します。
+2. GitHub連携をするためのポップアップが出ます。出ない場合はブラウザの設定でポップアップを許可してください。
+3. `Continue`をクリックします
+4. リポジトリ選択画面になりますので、先ほど作成した`hcp-terraform-handson`リポジトリを選択します
+5. 右下`Create`ボタンを押してWorkspaceの作成を完了します。
 
 次に、HCP TerraformがAWSにリソースを作成するための、アクセスキーを設定します。
 
-Workspace内の左側`Variables`メニューを開き、
-`Workspace Variables`の`+ Add variable`をクリックします。
-
-`Environment variable`のラジオボタン選択し、`Key`に`AWS_ACCESS_KEY_ID`を、`Value`に先ほどコピーしたアクセスキーを設定、`Add variable`をクリックします。
-
-同様の手順で、`AWS_SECRET_ACCESS_KEY`としてシークレットアクセスキーを設定します。この際、`sensitive`にチェックを入れてください。
+1. Workspace内の左側`Variables`メニューを開き、
+`Workspace Variables`の`+ Add variable`ボタンをクリックします。
+2. `Environment variable`のラジオボタン選択し、`Key`に`AWS_ACCESS_KEY_ID`を、`Value`に先ほどコピーしたアクセスキーを設定、`Add variable`をクリックします。
+3. 同様の手順で、`AWS_SECRET_ACCESS_KEY`としてシークレットアクセスキーを設定します。この際、`sensitive`にチェックを入れてください。
 
 次のような見た目になっていれば大丈夫です。
 ![alt text](<images/スクリーンショット 2025-07-03 1.16.53.png>)
@@ -505,20 +506,18 @@ git push
 
 
 同様に解説します。
-作成が完了し、ALB の DNS 名が出力されたらブラウザからアクセスしてみてください。
+作成が完了し、ALB の DNS 名がHCP Terraform上に出力されたらブラウザからアクセスしてみてください。
 リロードを何回か繰り返すと、EC2 にラウンドロビンされている様子がわかると思います。
 
 次の準備のために、環境を削除しましょう。少し環境が複雑になってきましたが、IaC では環境の削除も容易です。
 
-```terraform
-terraform destroy
-```
+HCP TerraformのWorkspace内、左側メニューから`Settings` > `Destruction and Deletion`に進み、`Queue destroy plan`を実行します。これは、Terraformで作成した環境の削除に相当します。
 
 ### 開発環境、本番環境をそれぞれ作る
 
 最後に、この Terraform のコードを使って、本番と開発環境を作ってみましょう。冒頭に示した、最終ゴールです。
 
-![alt text](<images/devprod.png>)
+
 
 devフォルダ、prodフォルダを作成し、それぞれのフォルダにmain.tfをコピーします。また`variables.tf`, `dev.tfvars`, `prod.tfvars`の 3 ファイルを作成し、`variables.tf`はそれぞれのフォルダにコピー, `dev.tfvars`, `prod.tfvars`は片方のフォルダにコピーします。
 
