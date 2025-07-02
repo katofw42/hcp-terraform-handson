@@ -1,45 +1,34 @@
 ## 事前準備
 
-### Terraform のインストール
-
-まずは Terraform をインストールします。利用している OS ごとに、以下のコマンドをターミナルで実行してください。
-
-(参考) https://developer.hashicorp.com/terraform/install
+### GitHub リポジトリの準備
+GitHubにハンズオン用のリポジトリ`hcp-terraform-handson`を作成します。
+リポジトリを作成したら、皆様の作業端末にcloneし、`main.tf`を追加してpushします。
 
 ```bash
-# macOS
-# Homebrewを利用している場合は
-brew tap hashicorp/tap
-brew install hashicorp/tap/terraform
-# していない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍してパスを通す
-https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_darwin_arm64.zip
-
-
-# Windows
-# chocolateyを利用している場合は
-choco install terraform
-# していない場合は以下のURLからバイナリをダウンロードし、作業予定のフォルダに解凍してパスを通す
-https://releases.hashicorp.com/terraform/1.12.1/terraform_1.12.1_windows_amd64.zip
-
-# Amazon Linux
-sudo yum install -y yum-utils shadow-utils
-sudo yum-config-manager --add-repo https://rpm.releases.hashicorp.com/AmazonLinux/hashicorp.repo
-sudo yum -y install terraform
-```
-
-### インストールの確認
-
-インストールが完了したかを、次のコマンドで確認してみましょう。
-エラーが出る場合は一度ターミナルを再起動し、解決しなければ講師を呼んでください。
-
-```bash
-terraform -help
+git clone https://github.com/[USER]/hcp-terraform-handson.git
+cd hcp-terraform-handson
+echo "# main.tf" > main.tf
+git add .
+git commit -m "add main.tf"
+git push
 ```
 
 ### AWS のアクセスキー設定
 
-次に、Terraform コマンドを通じて AWS を操作するためのアクセスキーを設定します。
-本設定は**事務局側からご案内いただきます**ので、受け取った`アクセスキー`と`シークレットアクセスキー`をみなさまのターミナルで設定してください。
+次に、Terraform を通じて AWS を操作するためのアクセスキーを発行します。
+本設定は**AWS様よりからご案内いただきます**ので、受け取った`アクセスキー`と`シークレットアクセスキー`を手元にコピーしておいてください。
+
+
+### HCP Terraform のアカウント開設
+以下のアカウント開設リンクを開き、フォーム入力を進め`Create Account`ボタンを押します
+https://app.terraform.io/public/signup/account
+認証メールが届きますので、リンクをクリックし、Organizations作成ページに移動します。(**まだOrganizationsは作成しません**)
+
+その状態で、HCP Terraform Plusエディションの機能を14日有効にする、トライアル用リンクを開きます。
+https://app.terraform.io/app/organizations/new?trial=workshop2023
+
+Businessのボックスにチェックをいれ、フォーム入力を進め、Organizationsの作成を完了してください。
+
 
 ## Terraform ハンズオン
 
@@ -47,25 +36,38 @@ terraform -help
 
 本ハンズオンのゴールは、Terraform で ALB + EC2(MAZ)を、開発環境、本番環境の 2 面作ることです。理解のために、ステップバイステップで進めましょう。
 
-![alt text](images/devprod.png)
+![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
+
+### HCP TerraformのWorkspaceを設定する
+
+%%%%%%%%%%%%%%%%%%%%
+まずは、
+**Workspace作成＆VCS連携**
+
+%%%%%%%%%%%%%%%%%%%%%
+
+次に、HCP TerraformがAWSにリソースを作成するための、アクセスキーを設定します。
+
+Workspace内の左側`Variables`メニューを開き、
+`Workspace Variables`の`+ Add variable`をクリックします。
+
+`Environment variable`のラジオボタン選択し、`Key`に`AWS_ACCESS_KEY_ID`を、`Value`に先ほどコピーしたアクセスキーを設定、`Add variable`をクリックします。
+
+同様の手順で、`AWS_SECRET_ACCESS_KEY`としてシークレットアクセスキーを設定します。この際、`sensitive`にチェックを入れてください。
+
+次のような見た目になっていれば大丈夫です。
+![alt text](<images/スクリーンショット 2025-07-03 1.16.53.png>)
 
 ### 最小リソースの作成
 
 EC2 を 1 台作成するコードを書いてみます。
 
-![alt text](<images/1vm.png>)
+![alt text](<images/スクリーンショット 2025-06-02 10.20.29.png>)
 
-まずは作業フォルダとファイルを作ります
 
-```bash
-mkdir terraform-handson
-cd terraform-handson
-touch main.tf
-```
+再度エディタで`main.tf`を開いてください。ここに Terraform のコードを書いていきましょう。
 
-エディタで`main.tf`を開いてください。ここに Terraform のコードを書いていきましょう。
-
-Terraform のコードは、非常にシンプルで、基本的に以下の見た目をしています。
+Terraform のコードは、非常にシンプルで、基本構文は以下の繰り返しです。
 
 ```
 <BLOCK TYPE> "<BLOCK LABEL>" "<BLOCK LABEL>" {
@@ -74,14 +76,15 @@ Terraform のコードは、非常にシンプルで、基本的に以下の見�
 }
 ```
 
-具体例を見てみます。`main.tf`に以下を書いて、実行してみましょう。
+具体例を見てみます。`main.tf`に以下を書いて、実行してみます。
 
 ```terraform
+# main.tf
 terraform {
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0"
     }
   }
 }
@@ -90,52 +93,14 @@ provider "aws" {
   region  = "ap-northeast-1"
 }
 
-data "aws_vpc" "vpc01" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01"]
-  }
-}
 
-data "aws_subnet" "private-1a" {
-  filter {
-    name   = "tag:Name"
-    values = ["prod-handson-vpc01-sub-prv01a"]
-  }
-}
-
-resource "aws_instance" "app_server" {
+resource "aws_instance" "web_server" {
   # ここにコードを調べながら書いてみましょう(画面投影で解説します)
   # https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/instance.html
-
-  subnet_id              = data.aws_subnet.private-1a.id
 }
 ```
 
-まず一番最初に、必要なプロバイダ(ここでは AWS)をインストールします。これは次のコマンドで実行できます。
 
-```bash
-terraform init
-```
-
-他にもサブコマンドがあり、コードのフォーマットや、文法チェックが出来ます。
-
-```bash
-terraform fmt
-terraform validate
-```
-
-実行前に、構成に最終確認も出来ます。
-
-```bash
-terraform plan
-```
-
-Plan でエラーが出なければ、実際に適用してみてリソースを作成します。(途中の確認では、`yes`と小文字でタイプしてください)
-
-```bash
-terraform apply
-```
 
 Complete の表示が出たら、リソースの作成が完了です。AWS コンソール上でも確認してみましょう。
 
