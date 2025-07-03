@@ -1,3 +1,19 @@
+
+- [事前準備](#事前準備)
+  - [GitHub リポジトリの準備](#github-リポジトリの準備)
+  - [AWS のアクセスキー設定](#aws-のアクセスキー設定)
+  - [HCP Terraform のアカウント開設](#hcp-terraform-のアカウント開設)
+- [Terraform ハンズオン](#terraform-ハンズオン)
+  - [ゴール目標](#ゴール目標)
+  - [HCP TerraformのWorkspaceを作成する](#hcp-terraformのworkspaceを作成する)
+  - [最小リソースの作成](#最小リソースの作成)
+  - [VPC を作成する](#vpc-を作成する)
+  - [EC2 を追加する](#ec2-を追加する)
+  - [ALB を追加する](#alb-を追加する)
+  - [開発環境、本番環境をそれぞれ作る](#開発環境本番環境をそれぞれ作る)
+- [片付け](#片付け)
+  - [作成したリソースの削除](#作成したリソースの削除)
+
 ## 事前準備
 
 ### GitHub リポジトリの準備
@@ -39,7 +55,7 @@ Businessのボックスにチェックをいれ、フォーム入力を進め、
 
 ![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
 
-### HCP TerraformのWorkspaceを設定する
+### HCP TerraformのWorkspaceを作成する
 
 先ほど作成したOrganizationsにおいて、画面内の`Version Control Workflow`を選択します。
 もし画面遷移をしてしまった場合は、左側メニュー`Workspaces`をクリック、右上の`New`から`Workspace`を選択します。
@@ -385,7 +401,7 @@ output "ec2_public_2_public_ip" {
  
 同様に解説します。概要が掴めたら、変更をpushしてください。
 ```bash
-git commit -am "create maz ec2"
+git commit -am "create multi AZ ec2"
 git push
 ```
 
@@ -515,64 +531,47 @@ HCP TerraformのWorkspace内、左側メニューから`Settings` > `Destruction
 
 ### 開発環境、本番環境をそれぞれ作る
 
-最後に、この Terraform のコードを使って、本番と開発環境を作ってみましょう。冒頭に示した、最終ゴールです。
+最後に、この Terraform のコードを使って、本番と開発環境を作ってみましょう。冒頭に示した、最終ゴールのアーキテクチャです。
 
+![alt text](<images/スクリーンショット 2025-06-02 10.20.05.png>)
 
+AWSは環境分離に様々な方法がありますが、ここではリソースのタグベースでそれぞれの環境を作ることを試してみます。
 
-devフォルダ、prodフォルダを作成し、それぞれのフォルダにmain.tfをコピーします。また`variables.tf`, `dev.tfvars`, `prod.tfvars`の 3 ファイルを作成し、`variables.tf`はそれぞれのフォルダにコピー, `dev.tfvars`, `prod.tfvars`は片方のフォルダにコピーします。
+リソース名に環境名を追加してみましょう。`main.tf`の32行目あたりに、次の変数定義を追加します。
 
 ```terraform
-# variables.tf
 variable "environment" {
   description = "Environment name (dev, prod)"
   type        = string
 }
 ```
 
-```terraform
-# dev.tfvars
-environment    = "dev"
+次に、`main.tf`を編集します。お使いのエディタの機能で、`${var.project_name}`となっている箇所を、`${var.project_name}-${var.environment}`と全て置換してください。手動でも大丈夫です。
+
+終わりましたら、変数を外部から渡しましょう。同時に開発環境として設定してみます。
+
+- HCP TerraformのWorkspace内左側メニュー`Variables` > `Workspace Variables`に移動し、`+ Add Variable`ボタンをクリックします
+- `Terraform Variable`のカテゴリで、`Key`に`environment`、`Value`に`dev`を入力し`Add Variable`ボタンをクリックします
+- 先ほど更新したコードをpushします
+```bash
+git commit -am "add env variable"
+git push
 ```
 
-```terraform
-# dev.tfvars
-environment    = "prod"
-```
+次に、本番環境の設定してみます。HCP Terraformでは環境ごとにWorkspaceを分けるのがプラクティスです。これまでの手順を参考に、新規のWorkspaceを作り、`environment`変数に`prod`を渡すところまでやってみましょう。
 
-次に、`main.tf`を編集します。お使いのエディタの機能で、`${var.project_name}`となっている箇所を、`${var.project_name}-${var.environment}`と全て置換してください。手動でも大丈夫です。全部で 10 箇所あります。
+(参考：手順の流れ)
+- Workspaceの作成
+- GitHubと連携し`hcp-terraform-handson`を選択
+- AWSのアクセスキーの設定
+- `environment`変数に`prod`を設定
+- 作成したworkspace内の`Runs`から、`+ New run`でPlanとApplyを実行
 
-終わりましたら、次のコマンドを実行して開発環境を作成します
+TerraformのApplyが完了するまで待った後、コンソールから見ると、それぞれ開発と本番環境がタグ名で分離して作成されていることが確認できます。このように、変数やコードを再利用性のある形で相互利用することにより、容易に環境の用意と削除が実行できます。
 
-```terraform
-terraform plan -var-file="dev.tfvars"
-terraform apply -var-file="dev.tfvars"
-```
-
-次に、本番環境を作成します
-
-```terraform
-terraform plan -var-file="prod.tfvars"
-terraform apply -var-file="prod.tfvars"
-```
-
-コンソールから見ると、それぞれ開発と本番環境が分離して作成されていることが確認できます。このように、変数やコードを再利用性のある形で相互利用することにより、容易に環境の用意と削除が実行できます。
-
-> [!TIP]
-> これまでのコードの最終形が、`/src`フォルダ配下にあります。うまく動作しない方は、参考にしてみてください。
-
-確認できたら、環境を削除します。
-
-```terraform
-terraform destroy -var-file="dev.tfvars"
-terraform destroy -var-file="prod.tfvars"
-```
-
-## Terraform のクラウド版
-
-今回利用したコミュニティ版以外にも、様々な機能が追加されたクラウド版があります。どのように利用できるか、投影のみになりますがご紹介します。
 
 ## 片付け
 
 ### 作成したリソースの削除
 
-(まだの場合は)`terraform apply`を実行した各フォルダで`terraform destroy`を実行します
+HCP Terraformの**各Workspace**内、左側メニューから`Settings` > `Destruction and Deletion`に進み、`Queue destroy plan`を実行します。
