@@ -41,8 +41,7 @@ git push -u origin main
 https://app.terraform.io/public/signup/account
 認証メールが届きますので、リンクをクリックし、Organizations作成ページに移動します。(**まだOrganizationsは作成しません**)
 
-その状態で、HCP Terraform Plusエディションの機能を14日有効にする、トライアル用リンクを開きます。
-https://app.terraform.io/app/organizations/new?trial=workshop2023
+その状態で、HCP Terraform Plusエディションの機能を14日有効にする、トライアル用リンクを開きます。(別途ご案内します)
 
 Businessのボックスにチェックをいれ、フォーム入力を進め、Organizationsの作成を完了してください。
 
