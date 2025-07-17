@@ -11,13 +11,14 @@
   - [EC2 を追加する](#ec2-を追加する)
   - [ALB を追加する](#alb-を追加する)
   - [開発環境、本番環境をそれぞれ作る](#開発環境本番環境をそれぞれ作る)
+  - [(発展編) Policy as Codeでガードレールを実装する](#発展編-policy-as-codeでガードレールを実装する)
 - [片付け](#片付け)
   - [作成したリソースの削除](#作成したリソースの削除)
 
 ## 事前準備
 
 ### GitHub リポジトリの準備
-GitHubにハンズオン用のリポジトリ`hcp-terraform-handson`を作成します。
+GitHubにハンズオン用のリポジトリ`[MMDD]-hcp-terraform-handson`を作成します。
 リポジトリを作成したら、新規の作業ディレクトリに移動し、皆様の作業端末から`main.tf`を追加してpushします。
 
 ```bash
@@ -26,14 +27,14 @@ git init
 git add main.tf
 git commit -m "first commit"
 git branch -M main
-git remote add origin git@github.com:[USER]/hcp-terraform-handson.git
+git remote add origin git@github.com:[USER]/[MMDD]-hcp-terraform-handson.git
 git push -u origin main
 ```
 
 ### AWS のアクセスキー設定
 
 次に、Terraform を通じて AWS を操作するためのアクセスキーを発行します。
-本設定は**AWS様よりからご案内いただきます**ので、受け取った`アクセスキー`と`シークレットアクセスキー`を手元にコピーしておいてください。
+本設定は**AWS様よりからご案内いただきます**ので、受け取った`アクセスキー`と`シークレットアクセスキー`、`セッショントークン`を手元にコピーしておいてください。
 
 
 ### HCP Terraform のアカウント開設
@@ -70,10 +71,10 @@ Businessのボックスにチェックをいれ、フォーム入力を進め、
 1. Workspace内の左側`Variables`メニューを開き、
 `Workspace Variables`の`+ Add variable`ボタンをクリックします。
 2. `Environment variable`のラジオボタン選択し、`Key`に`AWS_ACCESS_KEY_ID`を、`Value`に先ほどコピーしたアクセスキーを設定、`Add variable`をクリックします。
-3. 同様の手順で、`AWS_SECRET_ACCESS_KEY`としてシークレットアクセスキーを設定します。この際、`sensitive`にチェックを入れてください。
+3. 同様の手順で、`AWS_SECRET_ACCESS_KEY`と`AWS_SESSION_TOKEN`の名前で、シークレットアクセスキーとセッショントークンを設定します。この際、`sensitive`にチェックを入れてください。
 
 次のような見た目になっていれば大丈夫です。
-![alt text](<images/スクリーンショット 2025-07-03 1.16.53.png>)
+![alt text](<スクリーンショット 2025-07-17 23.33.21.png>)
 
 ### 最小リソースの作成
 
@@ -141,7 +142,7 @@ git commit -am "add tag to ec2"
 git push
 ```
 
-再度`Apply`承認待ちになっています。毎回確認が入るのが煩わしいので`Confirm`を進めたあと、自動で`Apply`されるように設定変更をしましょう。
+再度`Apply`承認待ちになっています。毎回確認が入るのが煩わしいので`Confirm`を進めたあと、自動で`Apply`されるように設定変更をしましょう。(このように、例えば開発環境は自動承認、本番環境は手動承認といった形で使い分けができます)
 
 HCP TerraformのWorkspace内、左側メニューから`Settings` > `Version Control`に進み、`Auto-apply API, UI, & VCS runs`にチェックを入れた後、ページ最下部`Update VCS settings`を押します。
 
@@ -312,7 +313,7 @@ data "aws_ami" "amazon_linux2023" {
 
 # セキュリティグループ
 resource "aws_security_group" "ec2_sg" {
-  name        = "${var.project_name}-ec2-sg"
+  name        = "hcp-terraform-handson-ec2-sg"
   description = "Security group for EC2 instances"
   vpc_id      = aws_vpc.main.id
 
@@ -418,7 +419,7 @@ EC2 の手前に ALB を追加します。
 ```terraform
 # ALB用セキュリティグループ
 resource "aws_security_group" "alb_sg" {
-  name        = "${var.project_name}-alb-sg"
+  name        = "hcp-terraform-handson-alb-sg"
   description = "Security group for ALB"
   vpc_id      = aws_vpc.main.id
 
@@ -568,9 +569,44 @@ git push
 
 TerraformのApplyが完了するまで待った後、コンソールから見ると、それぞれ開発と本番環境がタグ名で分離して作成されていることが確認できます。このように、変数やコードを再利用性のある形で相互利用することにより、容易に環境の用意と削除が実行できます。
 
+### (発展編) Policy as Codeでガードレールを実装する
+
+各リソースが従うべきルールを、同じくコードで実装することが可能です。例えば
+- 本番環境は金曜夕方〜月曜朝までのリソース変更を認めない
+- 開発環境はt3系のインスタンスのみ使う
+- セキュリティグループの22番ポートは社内のIPアドレスをソースにする
+などが考えられます。これらを「ルールとして人にお願いする」のではなく、実装として織り込んで機械的に強制することが出来るのがPolicy as Codeの利点です。
+
+ここでは、シンプルに`t3.micro以外のインスタンスは許可されない`を実装してみましょう。
+
+- HCP TerraformのWorkspaceの一覧を開き、左側メニューから`Settings` > `Policies`に進み、`Create New Policy`をクリックします
+- 任意の名前をつけ、画面真ん中の`Policy code`と書かれているエディタに次のコードを貼り付けたら、一番下の`Create policy`をクリックします
+
+```sentinel
+import "tfplan/v2" as tfplan
+
+main = rule {
+    all tfplan.resource_changes as _, changes {
+        changes.type != "aws_instance" or
+        changes.change.after.instance_type == "t3.micro"
+    }
+}
+```
+
+- 同じく左側の`Policy sets`メニューから`Connect a new policy set`ボタンをクリックします
+- `Individually managed policies`を選び、任意の名前をつけた後、`Scope of policies`から`Policies enforced on selected projects and workspaces`を選択します
+- ProjectとWorkspaceを選んだら、一番下の`Next`をクリックします
+- 最後に`Policies`から直前で作ったポリシーを選択し`Connect policy set`をクリックします
+
+これで特定のワークスペースに対するポリシーの設定が環境しました。Terraformのコードに戻り、試しにインスタンスのサイズをm5.largeに変更してプッシュしてみましょう。
+
+HCP TerraformのWorkspaceに移動し、`Runs`をみてみると、このポリシーにより変更がブロックされているのが確認できるかと思います。
+![alt text](<スクリーンショット 2025-07-18 1.29.18.png>)
 
 ## 片付け
 
 ### 作成したリソースの削除
 
 HCP Terraformの**各Workspace**内、左側メニューから`Settings` > `Destruction and Deletion`に進み、`Queue destroy plan`を実行します。
+
+
