@@ -110,7 +110,7 @@ terraform {
 }
 
 provider "aws" {
-  region  = "ap-northeast-1"
+  region  = "us-west-2"
 }
 
 
@@ -186,7 +186,7 @@ data "aws_availability_zones" "available" {
 variable "aws_region" {
   description = "AWS region"
   type        = string
-  default     = "ap-northeast-1"
+  default     = "us-west-2"
 }
 
 variable "project_name" {
