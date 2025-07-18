@@ -38,8 +38,10 @@ git push -u origin main
 
 
 ### HCP Terraform のアカウント開設
-以下のアカウント開設リンクを開き、フォーム入力を進め`Create Account`ボタンを押します
+以下のアカウント開設リンクを開き、フォーム入力を進め`Create Account`ボタンを押します。
+
 https://app.terraform.io/public/signup/account
+
 認証メールが届きますので、リンクをクリックし、Organizations作成ページに移動します。(**まだOrganizationsは作成しません**)
 
 その状態で、HCP Terraform Plusエディションの機能を14日有効にする、トライアル用リンクを開きます。(別途ご案内します)
@@ -600,7 +602,7 @@ main = rule {
 - ProjectとWorkspaceを選んだら、一番下の`Next`をクリックします
 - 最後に`Policies`から直前で作ったポリシーを選択し`Connect policy set`をクリックします
 
-これで特定のワークスペースに対するポリシーの設定が環境しました。Terraformのコードに戻り、試しにインスタンスのサイズをm5.largeに変更してプッシュしてみましょう。
+これで特定のワークスペースに対するポリシーの設定が環境しました。Terraformのコードに戻り、試しにインスタンスのサイズを`m5.large`に変更してプッシュしてみましょう。
 
 HCP TerraformのWorkspaceに移動し、`Runs`をみてみると、このポリシーにより変更がブロックされているのが確認できるかと思います。
 ![alt text](<images/スクリーンショット 2025-07-18 1.29.18.png>)
