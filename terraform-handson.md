@@ -614,7 +614,7 @@ HCP TerraformのWorkspaceに移動し、`Runs`をみてみると、このポリ�
 ![alt text](<images/スクリーンショット 2025-07-18 1.29.18.png>)
 
 ## マルチプラットフォームをTerraformで管理する
-これまでの`main.tf`の中身をすべて削除し、以下に置き換えたあと`apply`します。
+これまでの`main.tf`の中身をすべて削除し以下に置き換えたあと、**owner変数をWorkspaceに設定し**、`apply`します。
 
 ```terraform
 terraform {
